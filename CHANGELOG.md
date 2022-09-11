@@ -1,3 +1,7 @@
+#### 0.7.3 Important bug fix
+
+- Fixed project-mode support for latest Node-RED versions.
+
 #### 0.7.2 Important bug fix
 
 - `envnodes` directory is optional.
