@@ -8,10 +8,7 @@ Flow Manager separates your flow json to multiple files
 
 This assumes you have [Node-RED](https://nodered.org) already installed and working, if you need to install Node-RED see [here](https://nodered.org/docs/getting-started/installation)
 
-**NOTE:** This requires [Node.js](https://nodejs.org) v8.11.1+
-
-Feel free to donate to keep this project going!<br/>
-https://www.paypal.com/donate/?business=6X6AADL3TVMZL&no_recurring=0&currency_code=ILS
+**NOTE:** This requires [Node.js](https://nodejs.org) v14+
 
 Install via Node-RED Manage Palette
 
