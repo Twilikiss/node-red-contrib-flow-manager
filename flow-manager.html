@@ -191,18 +191,21 @@
                     stop: function() {
                         flowsToLoad = [];
                         $( ".ui-selected", this ).each(function() {
-                            const flowName = this.innerText;
+                            const flowName = this.getAttribute('data-flow-name');
                             flowsToLoad.push(flowName);
                         });
                     }
                 });
 
-                flowsArray = flowsArray.map(flowName=>flowName.substring(0, flowName.lastIndexOf('.')))
-                flowsArray.forEach(flowName=>{
-                    const thisFlowIsSelected = flowsFromConfig.indexOf(flowName) !== -1;
+                flowsArray = flowsArray.map(flow=>typeof flow === 'string' ? {
+                    name: flow.substring(0, flow.lastIndexOf('.')),
+                    flowName: flow.substring(0, flow.lastIndexOf('.'))
+                } : flow)
+                flowsArray.forEach(flow=>{
+                    const thisFlowIsSelected = flowsFromConfig.indexOf(flow.flowName) !== -1 || flowsFromConfig.indexOf(flow.name) !== -1 || flowsFromConfig.indexOf(flow.id) !== -1;
                     $selectEl.append(`
-                        <li class="flow-manager-load-flow-select-item ui-widget-content ${thisFlowIsSelected?'ui-selected':''}">
-                            ${flowName}
+                        <li class="flow-manager-load-flow-select-item ui-widget-content ${thisFlowIsSelected?'ui-selected':''}" data-flow-name="${flow.flowName}">
+                            ${flow.name}${flow.id ? ` (${flow.id})` : ''}
                         </li>
                     `);
                 });

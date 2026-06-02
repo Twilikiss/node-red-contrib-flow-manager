@@ -63,22 +63,57 @@ function getNodesEnvConfigForNode(node) {
         (node.id && directories.nodesEnvConfig[node.id]);
 }
 
+function encodeFlowFileName(flowDetails) {
+    const flowName = flowDetails.type === 'global' ? 'config-nodes' : flowDetails.name;
+    if(flowDetails.type === 'global' || !flowDetails.id) return encodeFileName(flowName);
+    return `${encodeFileName(flowName)}__${flowDetails.id}`;
+}
+
+function getFlowFilePath(flowDetails) {
+    let folderName;
+    if(flowDetails.type === 'subflow') folderName = 'subflows';
+    else if(flowDetails.type === 'tab' || flowDetails.type === 'flow') folderName = 'flows';
+    else folderName = '.';
+
+    const flowsDir = path.resolve(directories.basePath, folderName);
+    return path.join(flowsDir, encodeFlowFileName(flowDetails) + '.' + flowManagerSettings.fileFormat);
+}
+
+function flowMatchesIdentifier(flowDetails, identifier) {
+    return identifier === flowDetails.id ||
+        identifier === flowDetails.name ||
+        identifier === encodeFileName(flowDetails.name) ||
+        identifier === encodeFlowFileName(flowDetails);
+}
+
+function flowMatchesIdentifiers(flowDetails, identifiers) {
+    return !identifiers || !identifiers.length || identifiers.some(identifier=>flowMatchesIdentifier(flowDetails, identifier));
+}
+
+async function findFlowFileByIdentifier(type, identifier) {
+    const dir = type === 'subflow' ? directories.subflowsDir : directories.flowsDir;
+    const directPath = path.resolve(dir, `${identifier}.${flowManagerSettings.fileFormat}`);
+    if(await fs.pathExists(directPath)) return directPath;
+
+    const files = (await fs.readdir(dir)).filter(item=>{
+        const ext = path.extname(item).toLowerCase();
+        return ext === '.json' || ext === '.yaml';
+    });
+    for(const fileName of files) {
+        try {
+            const flowFile = await readFlowFile(path.join(dir, fileName));
+            const topNode = flowFile.obj.find(node=>node.type === (type === 'subflow' ? 'subflow' : 'tab'));
+            if(topNode && flowMatchesIdentifier({id: topNode.id, type: topNode.type, name: topNode.label || topNode.name}, identifier)) {
+                return path.join(dir, fileName);
+            }
+        } catch (e) {}
+    }
+}
+
 let lastFlows = {};
 const originalSaveFlows = PRIVATERED.runtime.storage.saveFlows;
 PRIVATERED.runtime.storage.saveFlows = async function newSaveFlows(data) {
     if(data.flows && data.flows.length) {
-
-        function getFlowFilePath(flowDetails) {
-            let folderName;
-            if(flowDetails.type === 'subflow') folderName = 'subflows';
-            else if(flowDetails.type === 'tab') folderName = 'flows';
-            else folderName = '.';
-
-            const flowsDir = path.resolve(directories.basePath, folderName);
-            const flowName = flowDetails.type === 'global' ? 'config-nodes' : flowDetails.name; // if it's a subflow, then the correct property is 'name'
-            const flowFilePath = path.join(flowsDir, encodeFileName(flowName) + '.' + flowManagerSettings.fileFormat);
-            return flowFilePath;
-        }
 
         const loadedFlowAndSubflowNames = {};
         const envNodePropsChangedByUser = {};
@@ -112,6 +147,7 @@ PRIVATERED.runtime.storage.saveFlows = async function newSaveFlows(data) {
                 if (!allFlows[node.id]) allFlows[node.id] = {nodes: []};
                 if (!allFlows[node.id].name) allFlows[node.id].name = node.label || node.name;
                 if (!allFlows[node.id].type) allFlows[node.id].type = node.type;
+                if (!allFlows[node.id].id) allFlows[node.id].id = node.id;
 
                 allFlows[node.id].nodes.push(node);
                 loadedFlowAndSubflowNames[node.id] = allFlows[node.id];
@@ -142,12 +178,11 @@ PRIVATERED.runtime.storage.saveFlows = async function newSaveFlows(data) {
 
             if(flowType === 'tab' &&
                 (
-                    flowManagerSettings.filter.indexOf(flowName) !== -1 ||
-                    flowManagerSettings.filter.length===0 ||
-                    onDemandFlowsManager.onDemandFlowsSet.has(flowName)
+                    flowMatchesIdentifiers({id: flowId, type: flowType, name: flowName}, flowManagerSettings.filter) ||
+                    onDemandFlowsManager.onDemandFlowsSet.has(encodeFlowFileName({id: flowId, type: flowType, name: flowName}))
                 )
             ) {
-                deployedFlowNames.add(flowName);
+                deployedFlowNames.add(encodeFlowFileName({id: flowId, type: flowType, name: flowName}));
             }
 
             // Potentially we save different flow file than the one we deploy, like "credentials" property is deleted in flow file.
@@ -168,12 +203,12 @@ PRIVATERED.runtime.storage.saveFlows = async function newSaveFlows(data) {
                 }
             }
 
-            const flowFilePath = getFlowFilePath({type: flowType, name: flowName});
+            const flowFilePath = getFlowFilePath({id: flowId, type: flowType, name: flowName});
 
             try {
                 if(lastFlows[flowId] && allFlows[flowId] && lastFlows[flowId].name != allFlows[flowId].name) {
                     const flowsDir = path.dirname(flowFilePath);
-                    const from = path.resolve(flowsDir, `${encodeFileName(lastFlows[flowId].name)}.${flowManagerSettings.fileFormat}`);
+                    const from = getFlowFilePath({id: flowId, type: flowType, name: lastFlows[flowId].name});
                     const to = path.resolve(flowFilePath);
                     try {
                         // First, try rename with git
@@ -193,10 +228,10 @@ PRIVATERED.runtime.storage.saveFlows = async function newSaveFlows(data) {
                 const flowRev = calculateRevision(fileStr)
                 switch (flowType) {
                     case 'tab':
-                        revisions.byFlowName[flowName] = {rev:flowRev, mtime:stat.mtime};
+                        revisions.byFlowName[encodeFlowFileName({id: flowId, type: flowType, name: flowName})] = {rev:flowRev, mtime:stat.mtime};
                         break
                     case 'subflow':
-                        revisions.bySubflowName[flowName] = {rev:flowRev, mtime:stat.mtime};
+                        revisions.bySubflowName[encodeFlowFileName({id: flowId, type: flowType, name: flowName})] = {rev:flowRev, mtime:stat.mtime};
                         break
                     case 'global':
                         revisions.global = {rev:flowRev, mtime:stat.mtime};
@@ -210,7 +245,8 @@ PRIVATERED.runtime.storage.saveFlows = async function newSaveFlows(data) {
         for(const flowId in lastFlows) {
             const flowName = lastFlows[flowId].name;
             if(!allFlows[flowId] && (
-                (flowManagerSettings.filter.indexOf(flowName) !== -1 || flowManagerSettings.filter.length===0) ||
+                flowMatchesIdentifiers(lastFlows[flowId], flowManagerSettings.filter) ||
+                flowManagerSettings.filter.length===0 ||
                 lastFlows[flowId].type === 'subflow'
             )) {
                 const flowFilePath = getFlowFilePath(lastFlows[flowId]);
@@ -304,18 +340,21 @@ async function readConfigFlowFile(ignoreObj) {
 }
 
 async function readFlowByNameAndType(type, name, ignoreObj) {
-    const fileNameWithExt = `${name}.${flowManagerSettings.fileFormat}`;
     if(type === 'flow') {
-        return await readFlowFile(path.join(directories.flowsDir, fileNameWithExt), ignoreObj);
+        const filePath = await findFlowFileByIdentifier('flow', name);
+        if(!filePath) throw new Error(`Flow file not found: ${name}`);
+        return await readFlowFile(filePath, ignoreObj);
     } else if(type === 'subflow') {
-        return await readFlowFile(path.join(directories.subflowsDir, fileNameWithExt), ignoreObj);
+        const filePath = await findFlowFileByIdentifier('subflow', name);
+        if(!filePath) throw new Error(`Subflow file not found: ${name}`);
+        return await readFlowFile(filePath, ignoreObj);
     } else if(type === 'global') {
         return await(readConfigFlowFile(ignoreObj));
     }
 }
 
 async function flowFileExists(flowName) {
-    return fs.exists(path.resolve(directories.flowsDir, `${flowName}.${flowManagerSettings.fileFormat}`));
+    return !!await findFlowFileByIdentifier('flow', flowName);
 }
 
 const onDemandFlowsManager = {
@@ -330,7 +369,7 @@ const onDemandFlowsManager = {
         } else {
             totalSet = newSet;
             for(const flowName of Array.from(totalSet)) {
-                if(!await flowFileExists(flowName) || flowManagerSettings.filter.indexOf(flowName) !== -1) {
+                if(!await flowFileExists(flowName) || flowMatchesIdentifiers({id: flowName, type: 'tab', name: flowName}, flowManagerSettings.filter)) {
                     totalSet.delete(flowName);
                 }
             }
@@ -405,7 +444,7 @@ async function main() {
         deployedFlowNames = new Set(
             Object.values(flowsInfo.loadedFlowAndSubflowNames)
                 .filter(flow=>flow.type==='tab')
-                .map(flow=>flow.name)
+                .map(flow=>encodeFlowFileName(flow))
         );
 
         lastFlows = flowsInfo.loadedFlowAndSubflowNames;
@@ -538,10 +577,20 @@ async function main() {
         return relevantItems;
     }
 
-    async function readAllFlowFileNamesWithoutExt(type) {
-        return (await readAllFlowFileNames(type)).map(
-            file=>file.substring(0, file.lastIndexOf('.'))
-        );
+    async function readAllFlowIdentifiers(type) {
+        const dir = type === 'subflow' ? directories.subflowsDir : directories.flowsDir;
+        const nodeType = type === 'subflow' ? 'subflow' : 'tab';
+        const identifiers = [];
+        for(const fileName of await readAllFlowFileNames(type)) {
+            try {
+                const flowJsonFile = await readFlowFile(path.join(dir, fileName));
+                const topNode = flowJsonFile.obj.find(node=>node.type === nodeType);
+                if(topNode) {
+                    identifiers.push(encodeFlowFileName({id: topNode.id, type: topNode.type, name: topNode.label || topNode.name}));
+                }
+            } catch (e) {}
+        }
+        return identifiers;
     }
 
     async function loadFlows(flowsToShow = null, getMode = false) {
@@ -574,19 +623,8 @@ async function main() {
         // read flows
         for(const algoFlowFileName of items) {
             try {
-                const itemWithoutExt = algoFlowFileName.substring(0, algoFlowFileName.lastIndexOf('.'));
                 if(!algoFlowFileName.toLowerCase().match(/.*\.(json)|(yaml)$/g)) continue;
                 const flowJsonFile = await readFlowFile(path.join(directories.flowsDir, algoFlowFileName));
-
-                retVal.flowVersions[itemWithoutExt] = {
-                    rev: calculateRevision(flowJsonFile.str),
-                    mtime: flowJsonFile.mtime
-                };
-
-                // Ignore irrelevant flows (filter flows functionality)
-                if(flowsToShow && flowsToShow.length && flowsToShow.indexOf(itemWithoutExt) === -1) {
-                    continue;
-                }
 
                 // find tab node
                 let tab = null;
@@ -606,10 +644,18 @@ async function main() {
                     }
                 }
 
-                if(!tab) {throw new Error("Could not find tab node in flow file")}
+                retVal.flowVersions[encodeFlowFileName({id: tab.id, type: tab.type, name: tab.label})] = {
+                    rev: calculateRevision(flowJsonFile.str),
+                    mtime: flowJsonFile.mtime
+                };
+
+                // Ignore irrelevant flows (filter flows functionality)
+                if(flowsToShow && flowsToShow.length && !flowMatchesIdentifiers({id: tab.id, type: tab.type, name: tab.label}, flowsToShow)) {
+                    continue;
+                }
 
                 Array.prototype.push.apply(flowJsonSum.nodes, flowJsonFile.obj);
-                retVal.loadedFlowAndSubflowNames[tab.id] = {type: tab.type, name: tab.label};
+                retVal.loadedFlowAndSubflowNames[tab.id] = {id: tab.id, type: tab.type, name: tab.label};
             } catch (e) {
                 nodeLogger.error('Could not load flow ' + algoFlowFileName + '\r\n' + e.stack||e);
             }
@@ -645,12 +691,11 @@ async function main() {
 
                 Array.prototype.push.apply(flowJsonSum.nodes, flowJsonFile.obj);
 
-                const itemWithoutExt = subflowFileName.substring(0, subflowFileName.lastIndexOf('.'));
-                retVal.subflowVersions[itemWithoutExt] = {
+                retVal.subflowVersions[encodeFlowFileName({id: subflowNode.id, type: subflowNode.type, name: subflowNode.name})] = {
                     rev: calculateRevision(flowJsonFile.str),
                     mtime: flowJsonFile.mtime
                 };
-                retVal.loadedFlowAndSubflowNames[subflowNode.id] = {type: subflowNode.type, name: subflowNode.name};
+                retVal.loadedFlowAndSubflowNames[subflowNode.id] = {id: subflowNode.id, type: subflowNode.type, name: subflowNode.name};
 
             } catch (e) {
                 nodeLogger.error('Could not load subflow ' + subflowFileName + '\r\n' + e.stack||e);
@@ -775,7 +820,7 @@ async function main() {
                 const topNode = nodesInFlow[0];
                 const flowName = topNode.label || topNode.name; // label on tabs ,
 
-                const destinationFile = path.resolve(directories.basePath, topNode.type === 'tab'? 'flows':'subflows', encodeFileName(flowName)+'.'+flowManagerSettings.fileFormat);
+                const destinationFile = path.resolve(directories.basePath, topNode.type === 'tab'? 'flows':'subflows', encodeFlowFileName({id: flowId, type: topNode.type, name: flowName})+'.'+flowManagerSettings.fileFormat);
 
                 fileWritePromises.push(
                     writeFlowFile(destinationFile, nodesInFlow)
@@ -804,7 +849,22 @@ async function main() {
         try {
             let flowFiles = await fs.readdir(path.join(directories.basePath, "flows"));
             flowFiles = flowFiles.filter(file=>file.toLowerCase().match(/.*\.(json)|(yaml)$/g));
-            res.send(flowFiles);
+            const flows = [];
+            for(const file of flowFiles) {
+                try {
+                    const flowJsonFile = await readFlowFile(path.join(directories.flowsDir, file));
+                    const tab = flowJsonFile.obj.find(node=>node.type === 'tab');
+                    if(tab) {
+                        flows.push({
+                            id: tab.id,
+                            name: tab.label,
+                            fileName: file,
+                            flowName: encodeFlowFileName({id: tab.id, type: tab.type, name: tab.label})
+                        });
+                    }
+                } catch (e) {}
+            }
+            res.send(flows);
         } catch(e) {
             res.status(404).send();
         }
@@ -813,8 +873,16 @@ async function main() {
     async function getFlowState(type, flowName) {
 
         let flowFile
+        let flowKey = flowName;
         try {
             flowFile = await readFlowByNameAndType(type, flowName, true);
+            if(type === 'flow' || type === 'subflow') {
+                const parsedFlowFile = await readFlowByNameAndType(type, flowName);
+                const topNode = parsedFlowFile.obj.find(node=>node.type === (type === 'subflow' ? 'subflow' : 'tab'));
+                if(topNode) {
+                    flowKey = encodeFlowFileName({id: topNode.id, type: topNode.type, name: topNode.label || topNode.name});
+                }
+            }
         } catch (e) {
             return null
         }
@@ -823,13 +891,13 @@ async function main() {
 
         let lastLoadedFlowVersionInfo;
         if(type==='flow') {
-            lastLoadedFlowVersionInfo = revisions.byFlowName[flowName];
+            lastLoadedFlowVersionInfo = revisions.byFlowName[flowKey];
             // If flow was not deployed either "on-demend" or passed filtering, we determine that it was not deployed.
-            const wasLoadedOnDemand = type === 'flow' && onDemandFlowsManager.onDemandFlowsSet.has(flowName)
-            retVal.deployed = deployedFlowNames.has(flowName);
+            const wasLoadedOnDemand = type === 'flow' && onDemandFlowsManager.onDemandFlowsSet.has(flowKey)
+            retVal.deployed = deployedFlowNames.has(flowKey);
             retVal.onDemand = wasLoadedOnDemand;
         } else if(type==='subflow') {
-            lastLoadedFlowVersionInfo = revisions.bySubflowName[flowName];
+            lastLoadedFlowVersionInfo = revisions.bySubflowName[flowKey];
             retVal.deployed = true;
         } else if(type==='global') {
             lastLoadedFlowVersionInfo = revisions.global;
@@ -854,7 +922,7 @@ async function main() {
     async function getFlowStateForType(type) {
         if(type === 'flow' || type === 'subflow') {
             const retVal = {};
-            const flowNames = await readAllFlowFileNamesWithoutExt(type);
+            const flowNames = await readAllFlowIdentifiers(type);
             for(const flowName of flowNames) {
                 retVal[flowName] = await getFlowState(type, flowName);
             }
@@ -947,7 +1015,7 @@ async function main() {
         try {
             if(!isObject(req.body) || !req.body.action) return res.status(400).send({"error":  'missing "action" key'});
 
-            const allFlows = await readAllFlowFileNamesWithoutExt('flow');
+            const allFlows = await readAllFlowIdentifiers('flow');
 
             const filterChosenFlows = (!flowManagerSettings.filter || flowManagerSettings.filter.length === 0) ?
                 allFlows :
