@@ -26,14 +26,12 @@
     "node-red",
     "node",
     "red",
-    "monogoto.io",
-    "monogoto",
     "flow",
     "manager",
     "Alon",
     "Amir",
     "aabluedragon"
   ],
-  "author": "monogoto.io",
+  "author": "twilikiss",
   "license": "MIT"
 }
