@@ -1,6 +1,8 @@
 ## _Flow Manager_ module for node-red
 
-Flow Manager separates your flow json to multiple files
+Flow Manager separates your flow json to multiple files.
+
+This version also supports duplicated Node-RED flow names by storing flow files with both the visible flow name and the internal flow id. This prevents duplicated imported flow copies from being overwritten or removed during deploy, reload, or Filter Flows operations.
 
 [View change log](https://gitlab.com/monogoto.io/node-red-contrib-flow-manager/-/blob/master/CHANGELOG.md)
 
@@ -36,11 +38,30 @@ All of your flow files are combined into a single JSON object, which is then loa
 For that reason, it is advised to add your "fat" flow json file to .gitignore because from that moment, the flows are saved separately.
 
 The nodes will be stored in the following subdirectories of your Node-RED path as such:
-* `/flows/`**`flow name`**
-* `/subflows/`**`subflow name`**
+* `/flows/`**`encoded flow name__flow id`**
+* `/subflows/`**`encoded subflow name__subflow id`**
 * `/config-nodes.json` (global config nodes will be stored here)
 
+Older files that use only the flow or subflow name are still readable. After a flow is deployed again, new files are written using the name plus id format.
+
 It's a good idea to add these paths to your version control system. 
+
+#### Duplicate flow names
+
+Node-RED allows importing a flow as a copy, which can create multiple flows with the same visible tab name. Flow Manager now uses the Node-RED flow id as the unique storage key while keeping the original flow label for display in the editor.
+
+For example, two flows both named `test-007` are stored as separate files:
+
+```text
+flows/test-007__<flow-id-1>.json
+flows/test-007__<flow-id-2>.json
+```
+
+This keeps duplicated flow copies persistent across deploys, restarts, and Filter Flows reloads.
+
+#### Security updates
+
+The dependency versions were updated to address npm audit findings, including upgrading axios and log4js to maintained versions.
 
 #### ![Filter Flows](https://gitlab.com/monogoto.io/node-red-contrib-flow-manager/-/raw/0.7.1/img/filter_flows_button.png)
 * Allows selecting which flows Node-RED will load, and which will be ignored and not loaded, **not only in Node-RED's UI, also in it's NodeJS process.** <br/>
@@ -194,7 +215,14 @@ curl --request GET \
 Response:
 
 ```json
-  ["Flow 1.json","Flow 2.json","Flow 3.json","Flow 4.json"]
+[
+  {
+    "id": "flow-id-1",
+    "name": "Flow 1",
+    "fileName": "Flow 1__flow-id-1.json",
+    "flowName": "Flow 1__flow-id-1"
+  }
+]
 ```
 
 #### Get flow-manager-cfg.json contents
@@ -217,7 +245,7 @@ change
 ```shell
 curl --header "Content-Type: application/json" \
   --request PUT \
-  --data '["Flow 1", "Flow 2"]' \
+  --data '["Flow 1__flow-id-1", "Flow 2__flow-id-2"]' \
   http://localhost:1880/flow-manager/filter-flows
 ```
 
@@ -283,7 +311,7 @@ Request to add/remove/replace any flow:
 ```shell
 curl --header "Content-Type: application/json" \
   --request POST \
-  --data '{"action":"addOndemand"/"removeOndemand"/"replaceOndemand" "flows":["Flow 1","Flow 2"] }' \
+  --data '{"action":"addOndemand"/"removeOndemand"/"replaceOndemand" "flows":["Flow 1__flow-id-1","Flow 2__flow-id-2"] }' \
   http://localhost:1880/flow-manager/states
 ```
 
