@@ -1,6 +1,7 @@
 ## _Flow Manager_ module for node-red
 
 Flow Manager separates your flow json to multiple files.
+Split Node-RED flows into separate files, with support for duplicated flow names.
 
 ### Project origin and attribution
 
@@ -15,7 +16,7 @@ This version keeps the original Flow Manager behavior and includes additional fi
 
 This version also supports duplicated Node-RED flow names by storing flow files with both the visible flow name and the internal flow id. This prevents duplicated imported flow copies from being overwritten or removed during deploy, reload, or Filter Flows operations.
 
-[View change log](https://gitlab.com/monogoto.io/node-red-contrib-flow-manager/-/blob/master/CHANGELOG.md)
+[View change log](https://raw.githubusercontent.com/Twilikiss/node-red-contrib-flow-manager/refs/heads/master/CHANGELOG.md)
 
 ### Installation
 
@@ -74,12 +75,12 @@ This keeps duplicated flow copies persistent across deploys, restarts, and Filte
 
 The dependency versions were updated to address npm audit findings, including upgrading axios and log4js to maintained versions.
 
-#### ![Filter Flows](https://gitlab.com/monogoto.io/node-red-contrib-flow-manager/-/raw/0.7.1/img/filter_flows_button.png)
+#### ![Filter Flows](https://raw.githubusercontent.com/Twilikiss/node-red-contrib-flow-manager/refs/heads/master/img/filter_flows_button.png)
 * Allows selecting which flows Node-RED will load, and which will be ignored and not loaded, **not only in Node-RED's UI, also in it's NodeJS process.** <br/>
 * Unselected flows are NOT deleted, only "ignored" until you select them again using `Filter Flows`.
 * Filtering configuration is stored in `flow-manager-cfg.json` file under your Node-RED path.
 * if `flow-manager-cfg.json` file does not exist, or exists but malformed, or contains an empty JSON array, then all flows will be loaded and no filtering is done.
-* ![Filter Flows Popup](https://gitlab.com/monogoto.io/node-red-contrib-flow-manager/-/raw/0.7.1/img/filter_flows_popup.png)
+* ![Filter Flows Popup](https://raw.githubusercontent.com/Twilikiss/node-red-contrib-flow-manager/refs/heads/master/img/filter_flows_popup.png)
     
 ### envnodes
 envnodes allows configuration of nodes using an external source and custom logic.<br/>
@@ -130,10 +131,10 @@ module.exports = async function() {
 
 Attempting to change any envnode controlled property via Node-RED UI/AdminAPI will be cancelled (with a warning popup) to keep original values defined in your envnodes configuration.
 
-![EnvNodes Warning](https://gitlab.com/monogoto.io/node-red-contrib-flow-manager/-/raw/0.7.1/img/envnodes_warning.png)
+![EnvNodes Warning](https://raw.githubusercontent.com/Twilikiss/node-red-contrib-flow-manager/refs/heads/master/img/envnodes_warning.png)
 
 ### Remote Deploy
-![Remote Deploy Button](https://gitlab.com/monogoto.io/node-red-contrib-flow-manager/-/raw/0.7.1/img/remote_deploy_button.png)
+![Remote Deploy Button](https://raw.githubusercontent.com/Twilikiss/node-red-contrib-flow-manager/refs/heads/master/img/remote_deploy_button.png)
 
 If you work in a server-client environment, where you work locally on your flows, and once in a while need to push your local changes to a remote process running Node-RED.
 
@@ -160,9 +161,9 @@ Do the following to enable Remote Deployment feature:<br/>
 * Restart Node-RED
 * You should see the new "Remote Deploy" button on top of the Node-RED UI.
 
-![Remote Deploy Remote Selection](https://gitlab.com/monogoto.io/node-red-contrib-flow-manager/-/raw/0.7.1/img/remote_deploy_select_remote.png)
+![Remote Deploy Remote Selection](https://raw.githubusercontent.com/Twilikiss/node-red-contrib-flow-manager/refs/heads/master/img/remote_deploy_select_remote.png)
 
-![Remote Deploy Diff Tool](https://gitlab.com/monogoto.io/node-red-contrib-flow-manager/-/raw/0.7.1/img/remote_diff.png)
+![Remote Deploy Diff Tool](https://raw.githubusercontent.com/Twilikiss/node-red-contrib-flow-manager/refs/heads/master/img/remote_diff.png)
 
     
 ### YAML flow file format
@@ -375,4 +376,4 @@ curl --request GET \
 ```
 
 
-[Change Log]: https://gitlab.com/monogoto.io/node-red-contrib-flow-manager/-/raw/0.7.1/CHANGELOG.md
+[Change Log]: https://raw.githubusercontent.com/Twilikiss/node-red-contrib-flow-manager/refs/heads/master/CHANGELOG.md
