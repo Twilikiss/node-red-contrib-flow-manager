@@ -1,3 +1,14 @@
+#### 0.8.0 Duplicate flow names and security updates
+
+##### Fixes
+- Support duplicated Node-RED flow names by storing flow and subflow files with both the encoded name and Node-RED id.
+- Fixed duplicated imported flow copies being overwritten or lost after deploy, restart, or Filter Flows reload.
+- Fixed flow removal logic to avoid deleting the wrong flow file when multiple flows share the same visible name.
+- Updated Filter Flows, on-demand loading, state tracking, and REST flow identifiers to use unique flow identifiers while keeping labels for display.
+
+##### Security
+- Upgraded axios and log4js dependencies to maintained versions to address npm audit findings.
+
 #### 0.7.3 Important bug fix
 
 - Fixed project-mode support for latest Node-RED versions.

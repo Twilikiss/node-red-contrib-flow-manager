@@ -2,6 +2,17 @@
 
 Flow Manager separates your flow json to multiple files.
 
+### Project origin and attribution
+
+This package is based on the original `node-red-contrib-flow-manager` project:
+
+* Original npm package: https://www.npmjs.com/package/node-red-contrib-flow-manager
+* Original source repository: https://gitlab.com/monogoto.io/node-red-contrib-flow-manager
+
+This version keeps the original Flow Manager behavior and includes additional fixes for duplicated Node-RED flow names, Filter Flows reload handling, and dependency security updates. Please refer to the original project for the initial implementation and historical documentation.
+
+
+
 This version also supports duplicated Node-RED flow names by storing flow files with both the visible flow name and the internal flow id. This prevents duplicated imported flow copies from being overwritten or removed during deploy, reload, or Filter Flows operations.
 
 [View change log](https://gitlab.com/monogoto.io/node-red-contrib-flow-manager/-/blob/master/CHANGELOG.md)
